@@ -34,7 +34,9 @@ setup(
         "prettytable>=0.7.2",
         "python-dateutil>=2.7.0",
         "packaging>=23.2",
-        "google-cloud-artifact-registry>=1.8.4",
     ],
+    extras_require={
+        "google": ["google-cloud-artifact-registry>=1.8.4"],
+    },
     setup_requires=["pytest-runner"],
 )
