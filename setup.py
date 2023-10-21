@@ -5,7 +5,7 @@ from setuptools import setup
 
 
 this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
@@ -13,7 +13,7 @@ setup(
     version="0.2.1",
     description="A simple measure of software dependency freshness.",
     long_description=long_description,
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
     author="nasirhjafri",
     url="https://github.com/nasirhjafri/libyear",
     classifiers=[
@@ -33,6 +33,8 @@ setup(
         "requests>=2.0.0",
         "prettytable>=0.7.2",
         "python-dateutil>=2.7.0",
+        "packaging>=23.2",
+        "google-cloud-artifact-registry>=1.8.4",
     ],
     setup_requires=["pytest-runner"],
 )
