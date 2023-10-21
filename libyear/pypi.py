@@ -1,15 +1,18 @@
 from distutils.version import LooseVersion
 
 import dateutil.parser
+import os
 import requests
 import sys
 
+PYPI_INDEX_URL = os.environ.get('PYPI_INDEX_URL', 'https://pypi.org')
 
-def get_pypi_data(name, version=None):
+
+def get_pypi_data(name, version=None, repository=PYPI_INDEX_URL):
     """return a dictionary with pypi project data"""
-    url = "https://pypi.org/pypi/%s/json" % name
+    url = f'{repository}/pypi/{name}/json'
     if version:
-        url = "https://pypi.org/pypi/%s/%s/json" % (name, version)
+        url = f'{repository}/pypi/{name}/{version}/json'
     r = requests.get(url)
     if r.status_code < 400:
         return r.json()
@@ -21,14 +24,14 @@ def clean_version(version):
     return ''.join(version)
 
 
-def get_version(pypi_data, version, lt=False):
+def get_version(pypi_data, version, lt=False, repository=PYPI_INDEX_URL):
     if not version:
         return None
 
     orig_ver = version
     releases = pypi_data['releases']
     if version not in releases:
-        version_data = get_pypi_data(pypi_data['info']['name'], version=version)
+        version_data = get_pypi_data(pypi_data['info']['name'], version=version, repository=repository)
         version = version_data.get('info', {}).get('version')
     if lt:
         releases = [(r, rd[-1]['upload_time_iso_8601']) for r, rd in releases.items() if rd]
@@ -45,17 +48,19 @@ def get_version(pypi_data, version, lt=False):
             return releases[idx + 1]
     return version
 
-def get_no_of_releases(name, version):
-    pypi_data = get_pypi_data(name)
+
+def get_no_of_releases(name, version, repository=PYPI_INDEX_URL):
+    pypi_data = get_pypi_data(name, repository=repository)
     if not pypi_data:
         return None, None, None, None
 
     releases = pypi_data['releases']
-    
-    return (len(releases)-list(releases).index(version))
 
-def get_version_release_dates(name, version, version_lt):
-    pypi_data = get_pypi_data(name)
+    return len(releases) - list(releases).index(version)
+
+
+def get_version_release_dates(name, version, version_lt, repository=PYPI_INDEX_URL):
+    pypi_data = get_pypi_data(name, repository=repository)
     if not pypi_data:
         return None, None, None, None
 
@@ -88,7 +93,7 @@ def get_version_release_dates(name, version, version_lt):
     return version, version_date, latest_version, latest_version_date
 
 
-def get_lib_days(name, version, version_lt):
-    v, cr, lv, lr = get_version_release_dates(name, version, version_lt)
+def get_lib_days(name, version, version_lt, repository=PYPI_INDEX_URL):
+    v, cr, lv, lr = get_version_release_dates(name, version, version_lt, repository=repository)
     libdays = (lr - cr).days if cr else 0
     return v, lv, libdays

@@ -4,7 +4,7 @@ from enum import Enum
 
 from prettytable import PrettyTable
 
-from libyear.pypi import get_lib_days, get_no_of_releases
+from libyear.pypi import get_lib_days, get_no_of_releases, PYPI_INDEX_URL
 from libyear.utils import load_requirements, get_requirement_files, get_requirement_name_and_version
 
 class Format(Enum):
@@ -28,6 +28,13 @@ def main():
         choices=list(Format),
         default=Format.text
     )
+    parser.add_argument(
+        '-i',
+        '--index-url',
+        help=f"The url of your pypi index (default: {PYPI_INDEX_URL})",
+        type=str, 
+        default=PYPI_INDEX_URL
+    )
     args = parser.parse_args()
     requirements = set()
     for req_file in get_requirement_files(args.r):
@@ -45,7 +52,7 @@ def main():
         if not version and not version_lt:
             continue
         
-        v, lv, days = get_lib_days(name, version, version_lt)
+        v, lv, days = get_lib_days(name, version, version_lt, args.index_url)
         if v and days > 0:
             pt.add_row([name, v, lv, str(round(days / 365, 2))])
         total_days += days
@@ -59,7 +66,7 @@ def main():
     else:
         print(pt.get_formatted_string(args.format.value))
         if args.format == Format.text:
-            print("Your system is %s libyears behind" % str(round(total_days / 365, 2)))
+            print(f"Your system is {round(total_days / 365, 2)} libyears behind")
         
 
 
