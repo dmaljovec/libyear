@@ -1,4 +1,6 @@
+import bisect
 import os
+import sys
 
 from google.cloud import artifactregistry_v1
 from packaging.version import parse
