@@ -7,15 +7,19 @@ import requests
 from packaging.version import parse
 
 
-NEXUS_URL = os.environ("NEXUS_URL")
-NEXUS_REPOSITORY = os.environ("NEXUS_PYPI_REPOSITORY")
+NEXUS_URL = os.environ.get("NEXUS_URL", "")
+NEXUS_REPOSITORY = os.environ.get("NEXUS_PYPI_REPOSITORY", "pypi-hosted")
 
 
-def get_package_details(name, version=None, host=NEXUS_URL, repository=NEXUS_REPOSITORY):
+def get_package_details(
+    name, version=None, host=NEXUS_URL, repository=NEXUS_REPOSITORY
+):
     continuation_token = None
     items = []
     while True:
-        url = f"{host}/service/rest/v1/search/assets?repository={repository}&name={name}"
+        url = (
+            f"{host}/service/rest/v1/search/assets?repository={repository}&name={name}"
+        )
         if version:
             url += f"&version={version}"
         if continuation_token:
@@ -50,7 +54,9 @@ def get_nexus_timestamp(
 ):
     continuation_token = None
     while True:
-        url = f"{host}/service/rest/v1/search/assets?repository={repository}&name={name}"
+        url = (
+            f"{host}/service/rest/v1/search/assets?repository={repository}&name={name}"
+        )
         if continuation_token:
             url += f"&continuationToken={continuation_token}"
 
@@ -60,7 +66,10 @@ def get_nexus_timestamp(
             data = r.json()
             for item in data.get("items", []):
                 pypi_data = item.get("pypi", {})
-                if pypi_data.get("name", "") == name and pypi_data.get("version", "") == version:
+                if (
+                    pypi_data.get("name", "") == name
+                    and pypi_data.get("version", "") == version
+                ):
                     return datetime.strptime(
                         item.get("lastModified"),
                         "%Y-%m-%dT%H:%M:%S.%f%z",
@@ -71,7 +80,9 @@ def get_nexus_timestamp(
     return None
 
 
-def get_version_release_dates(name, version, version_lt, host=NEXUS_URL, repository=NEXUS_REPOSITORY):
+def get_version_release_dates(
+    name, version, version_lt, host=NEXUS_URL, repository=NEXUS_REPOSITORY
+):
     available_versions = [
         v[2]
         for v in get_package_details(
@@ -80,6 +91,8 @@ def get_version_release_dates(name, version, version_lt, host=NEXUS_URL, reposit
             repository=repository,
         )
     ]
+    if len(available_versions) == 0:
+        return None, None, None, None
 
     # retrieve latest_version
     latest_version = str(available_versions[-1])
@@ -91,7 +104,9 @@ def get_version_release_dates(name, version, version_lt, host=NEXUS_URL, reposit
         if idx > 0:
             version = str(available_versions[idx - 1])
         else:
-            print(f"Unsatisfiable constraint: {name}<{str(version_lt)}", file=sys.stderr)
+            print(
+                f"Unsatisfiable constraint: {name}<{str(version_lt)}", file=sys.stderr
+            )
             version = None
 
     if version is None:
@@ -100,3 +115,13 @@ def get_version_release_dates(name, version, version_lt, host=NEXUS_URL, reposit
     version_date = get_nexus_timestamp(name, version, host, repository)
     latest_version_date = get_nexus_timestamp(name, latest_version, host, repository)
     return version, version_date, latest_version, latest_version_date
+
+
+def get_lib_days(
+    name, version, version_lt, host=NEXUS_URL, repository=NEXUS_REPOSITORY
+):
+    v, cr, lv, lr = get_version_release_dates(
+        name, version, version_lt, host, repository
+    )
+    libdays = (lr - cr).days if cr else 0
+    return v, lv, libdays

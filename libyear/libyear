@@ -5,12 +5,39 @@ from enum import Enum
 from prettytable import PrettyTable
 
 from libyear.pypi import get_lib_days, get_no_of_releases, PYPI_INDEX_URL
-from libyear.utils import load_requirements, get_requirement_files, get_requirement_name_and_version
+from libyear.utils import (
+    load_requirements,
+    get_requirement_files,
+    get_requirement_name_and_version,
+)
+
+
+from libyear.nexus import (
+    get_lib_days as nexus_get_lib_days,
+    NEXUS_URL,
+    NEXUS_REPOSITORY,
+)
+
+try:
+    from libyear.google_artifact_registry import (
+        get_lib_days as gcp_get_lib_days,
+        GOOGLE_PROJECT,
+        GOOGLE_LOCATION,
+        GOOGLE_REPOSITORY,
+    )
+except ImportError:
+
+    def gcp_get_lib_days(name, version, version_lt):
+        print(
+            "google-cloud-artifact-registry is not installed, try `pip install libyear[google]`"
+        )
+        return None, None, 0
+
 
 class Format(Enum):
-    text = 'text'
-    json = 'json'
-    csv = 'csv'
+    text = "text"
+    json = "json"
+    csv = "csv"
 
     def __str__(self):
         return self.value
@@ -18,22 +45,68 @@ class Format(Enum):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-r', help="Requirements file/path", action='store')
-    parser.add_argument('--sort', help="Sort by years behind, in descending order", action='store_true')
+    parser.add_argument("-r", help="Requirements file/path", action="store")
     parser.add_argument(
-        '-f',
-        '--format',
-        help=f"The output format to use (default: {Format.text})",
-        type=Format, 
-        choices=list(Format),
-        default=Format.text
+        "--sort", help="Sort by years behind, in descending order", action="store_true"
     )
     parser.add_argument(
-        '-i',
-        '--index-url',
+        "-f",
+        "--format",
+        help=f"The output format to use (default: {Format.text})",
+        type=Format,
+        choices=list(Format),
+        default=Format.text,
+    )
+    parser.add_argument(
+        "-i",
+        "--index-url",
         help=f"The url of your pypi index (default: {PYPI_INDEX_URL})",
-        type=str, 
-        default=PYPI_INDEX_URL
+        type=str,
+        default=PYPI_INDEX_URL,
+    )
+    parser.add_argument(
+        "-n",
+        "--use-nexus",
+        help=f"When specified, libyear will use Nexus to check for releases before falling back to PyPI",
+        type=bool,
+        default=False,
+    )
+    parser.add_argument(
+        "--nexus-url",
+        help=f"When specified, libyear will use Nexus to check for releases before falling back to PyPI",
+        type=str,
+        default=NEXUS_URL,
+    )
+    parser.add_argument(
+        "--nexus-repo",
+        help=f"The repository name within your Nexus server (defaults to the value of the NEXUS_REPOSITORY environment variable)",
+        type=str,
+        default=NEXUS_REPOSITORY,
+    )
+    parser.add_argument(
+        "-g",
+        "--use-gcp",
+        help=f"When specified, libyear will use Google Artifact Registry to check for releases before falling back to PyPI",
+        type=bool,
+        default=False,
+    )
+    parser.add_argument(
+        "--gcp-project",
+        help=f"The project id within your Google Cloud Platform account (defaults to the value of the GOOGLE_ARTIFACT_REGISTRY_PROJECT environment variable)",
+        type=str,
+        default=GOOGLE_PROJECT,
+    )
+    parser.add_argument(
+        "--gcp-location",
+        help=f"The location within your Google Cloud Platform account (defaults to the value of the GOOGLE_ARTIFACT_REGISTRY_LOCATION environment variable)",
+        type=str,
+        default=GOOGLE_LOCATION,
+    )
+    parser.add_argument(
+        "--gcp-repository",
+        help=f"The project id within your Google Cloud Platform account (defaults to the value of the GOOGLE_ARTIFACT_REGISTRY_PYPI_REPOSITORY environment variable)",
+        type=str,
+        default=GOOGLE_REPOSITORY,
     )
     args = parser.parse_args()
     requirements = set()
@@ -41,9 +114,9 @@ def main():
         requirements.update(load_requirements(req_file))
 
     pt = PrettyTable()
-    pt.field_names = ['Library', 'Current Version', 'Latest Version', 'Libyears behind']
+    pt.field_names = ["Library", "Current Version", "Latest Version", "Libyears behind"]
     total_days = 0
-    
+
     for req in requirements:
         name, version, version_lt = get_requirement_name_and_version(req)
         if not name:
@@ -51,14 +124,45 @@ def main():
 
         if not version and not version_lt:
             continue
-        
-        v, lv, days = get_lib_days(name, version, version_lt, args.index_url)
+
+        if args.use_nexus:
+            v, lv, days = nexus_get_lib_days(
+                name,
+                version,
+                version_lt,
+                host=args.nexus_url,
+                repository=args.nexus_repo,
+            )
+            if (v, lv, days) == (None, None, 0) and args.use_gcp:
+                pass
+                # v, lv, days = gcp_get_lib_days(
+                #     name,
+                #     version,
+                #     version_lt,
+                #     host=args.nexus_url,
+                #     repository=args.nexus_repo,
+                # )
+        elif args.use_gcp:
+            pass
+            # v, lv, days = gcp_get_lib_days(
+            #     name,
+            #     version,
+            #     version_lt,
+            #     host=args.nexus_url,
+            #     repository=args.nexus_repo,
+            # )
+        else:
+            v, lv, days = None, None, 0
+
+        if (v, lv, days) == (None, None, 0):
+            v, lv, days = get_lib_days(name, version, version_lt, args.index_url)
+
         if v and days > 0:
             pt.add_row([name, v, lv, str(round(days / 365, 2))])
         total_days += days
 
     if args.sort:
-        pt.sortby = 'Libyears behind'
+        pt.sortby = "Libyears behind"
         pt.reversesort = True
 
     if total_days == 0 and args.format == Format.text:
@@ -67,7 +171,6 @@ def main():
         print(pt.get_formatted_string(args.format.value))
         if args.format == Format.text:
             print(f"Your system is {round(total_days / 365, 2)} libyears behind")
-        
 
 
 if __name__ == "__main__":

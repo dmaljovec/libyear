@@ -100,3 +100,9 @@ def get_version_release_dates(
         repository=repository,
     )
     return version, version_date, latest_version, latest_version_date
+
+
+def get_lib_days(name, version, version_lt):
+    v, cr, lv, lr = get_version_release_dates(name, version, version_lt)
+    libdays = (lr - cr).days if cr else 0
+    return v, lv, libdays
