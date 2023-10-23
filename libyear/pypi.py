@@ -5,6 +5,8 @@ import os
 import requests
 import sys
 
+from packaging.version import parse
+
 PYPI_INDEX_URL = os.environ.get('PYPI_INDEX_URL', 'https://pypi.org')
 
 
@@ -52,11 +54,12 @@ def get_version(pypi_data, version, lt=False, repository=PYPI_INDEX_URL):
 def get_no_of_releases(name, version, repository=PYPI_INDEX_URL):
     pypi_data = get_pypi_data(name, repository=repository)
     if not pypi_data:
-        return None, None, None, None
+        return None
 
-    releases = pypi_data['releases']
+    version = parse(version)
+    releases = sorted(set(map(parse, pypi_data['releases'])))
 
-    return len(releases) - list(releases).index(version)
+    return len(releases) - list(releases).index(version) - 1
 
 
 def get_version_release_dates(name, version, version_lt, repository=PYPI_INDEX_URL):
