@@ -29,7 +29,7 @@ except ImportError:
 
     def gcp_get_lib_days(name, version, version_lt):
         print(
-            "google-cloud-artifact-registry is not installed, try `pip install libyear[google]`"
+            "google-cloud-artifact-registry is not installed, try `pip install libyear[gcp]`"
         )
         return None, None, 0
 
@@ -65,15 +65,16 @@ def main():
         default=PYPI_INDEX_URL,
     )
     parser.add_argument(
-        "-n",
-        "--use-nexus",
-        help=f"When specified, libyear will use Nexus to check for releases before falling back to PyPI",
-        type=bool,
+        "-p",
+        "--private",
+        help=f"The type of private repository to check before falling back to PyPI (default: {None}), available options: nexus, gcp",
+        required=False,
+        choices=["nexus", "gcp"],
         default=False,
     )
     parser.add_argument(
         "--nexus-url",
-        help=f"When specified, libyear will use Nexus to check for releases before falling back to PyPI",
+        help=f"The url of your Nexus server (defaults to the value of the NEXUS_URL environment variable)",
         type=str,
         default=NEXUS_URL,
     )
@@ -82,13 +83,6 @@ def main():
         help=f"The repository name within your Nexus server (defaults to the value of the NEXUS_REPOSITORY environment variable)",
         type=str,
         default=NEXUS_REPOSITORY,
-    )
-    parser.add_argument(
-        "-g",
-        "--use-gcp",
-        help=f"When specified, libyear will use Google Artifact Registry to check for releases before falling back to PyPI",
-        type=bool,
-        default=False,
     )
     parser.add_argument(
         "--gcp-project",
@@ -125,7 +119,7 @@ def main():
         if not version and not version_lt:
             continue
 
-        if args.use_nexus:
+        if args.private == "nexus":
             v, lv, days = nexus_get_lib_days(
                 name,
                 version,
@@ -133,29 +127,25 @@ def main():
                 host=args.nexus_url,
                 repository=args.nexus_repo,
             )
-            if (v, lv, days) == (None, None, 0) and args.use_gcp:
-                pass
-                # v, lv, days = gcp_get_lib_days(
-                #     name,
-                #     version,
-                #     version_lt,
-                #     host=args.nexus_url,
-                #     repository=args.nexus_repo,
-                # )
-        elif args.use_gcp:
-            pass
-            # v, lv, days = gcp_get_lib_days(
-            #     name,
-            #     version,
-            #     version_lt,
-            #     host=args.nexus_url,
-            #     repository=args.nexus_repo,
-            # )
+        elif args.private == "gcp":
+            v, lv, days = gcp_get_lib_days(
+                name,
+                version,
+                version_lt,
+                project=args.gcp_project,
+                location=args.gcp_location,
+                repository=args.gcp_repository,
+            )
         else:
             v, lv, days = None, None, 0
 
         if (v, lv, days) == (None, None, 0):
-            v, lv, days = get_lib_days(name, version, version_lt, args.index_url)
+            v, lv, days = get_lib_days(
+                name,
+                version,
+                version_lt,
+                args.index_url,
+            )
 
         if v and days > 0:
             pt.add_row([name, v, lv, str(round(days / 365, 2))])

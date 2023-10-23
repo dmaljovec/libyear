@@ -36,7 +36,7 @@ setup(
         "packaging>=23.2",
     ],
     extras_require={
-        "google": ["google-cloud-artifact-registry>=1.8.4"],
+        "gcp": ["google-cloud-artifact-registry>=1.8.4"],
     },
     setup_requires=["pytest-runner"],
 )
