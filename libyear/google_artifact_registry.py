@@ -23,14 +23,14 @@ def get_package_details(
     request = artifactregistry_v1.ListVersionsRequest(parent=artifact_name)
     response = client.list_versions(request=request)
     for page in response.pages:
-        for version in page.versions:
-            extracted_version = version.name.rsplit("/", 1)[1]
-            if version is None or version == version == extracted_version:
+        for item in page.versions:
+            extracted_version = item.name.rsplit("/", 1)[1]
+            if version is None or version == extracted_version:
                 items.append(
                     (
                         name,
                         parse(extracted_version),
-                        version.update_time,
+                        item.update_time,
                     )
                 )
 
