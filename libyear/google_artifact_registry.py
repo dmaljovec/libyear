@@ -2,6 +2,7 @@ import bisect
 import os
 import sys
 
+import google.api_core.exceptions
 from google.cloud import artifactregistry_v1
 from packaging.version import parse
 
@@ -21,18 +22,21 @@ def get_package_details(
     client = artifactregistry_v1.ArtifactRegistryClient()
     artifact_name = f"projects/{project}/locations/{location}/repositories/{repository}/packages/{name}"
     request = artifactregistry_v1.ListVersionsRequest(parent=artifact_name)
-    response = client.list_versions(request=request)
-    for page in response.pages:
-        for item in page.versions:
-            extracted_version = item.name.rsplit("/", 1)[1]
-            if version is None or version == extracted_version:
-                items.append(
-                    (
-                        name,
-                        parse(extracted_version),
-                        item.update_time,
+    try:
+        response = client.list_versions(request=request)
+        for page in response.pages:
+            for item in page.versions:
+                extracted_version = item.name.rsplit("/", 1)[1]
+                if version is None or version == extracted_version:
+                    items.append(
+                        (
+                            name,
+                            parse(extracted_version),
+                            item.update_time,
+                        )
                     )
-                )
+    except google.api_core.exceptions.NotFound:
+        pass
 
     return sorted(items)
 
@@ -60,7 +64,10 @@ def get_no_of_releases(
 ):
     version = parse(version)
     details = get_package_details(
-        name=name, project=project, location=location, repository=repository
+        name=name,
+        project=project,
+        location=location,
+        repository=repository,
     )
     versions = sorted(set([v[1] for v in details]))
 
@@ -80,10 +87,12 @@ def get_version_release_dates(
         for v in get_package_details(
             name=name,
             project=project,
-            location=locals,
+            location=location,
             repository=repository,
         )
     ]
+    if len(available_versions) == 0:
+        return None, None, None, None
 
     # retrieve latest_version
     latest_version = str(available_versions[-1])
@@ -95,7 +104,9 @@ def get_version_release_dates(
         if idx > 0:
             version = str(available_versions[idx - 1])
         else:
-            print(f"Unsatisfiable constraint: {name}<{str(version_lt)}", file=sys.stderr)
+            print(
+                f"Unsatisfiable constraint: {name}<{str(version_lt)}", file=sys.stderr
+            )
             version = None
 
     if version is None:
@@ -118,7 +129,21 @@ def get_version_release_dates(
     return version, version_date, latest_version, latest_version_date
 
 
-def get_lib_days(name, version, version_lt):
-    v, cr, lv, lr = get_version_release_dates(name, version, version_lt)
+def get_lib_days(
+    name,
+    version,
+    version_lt,
+    project=GOOGLE_PROJECT,
+    location=GOOGLE_LOCATION,
+    repository=GOOGLE_REPOSITORY,
+):
+    v, cr, lv, lr = get_version_release_dates(
+        name,
+        version,
+        version_lt,
+        project=project,
+        location=location,
+        repository=repository,
+    )
     libdays = (lr - cr).days if cr else 0
     return v, lv, libdays
