@@ -80,6 +80,14 @@ def get_nexus_timestamp(
     return None
 
 
+def get_no_of_releases(name, version, host=NEXUS_URL, repository=NEXUS_REPOSITORY):
+    version = parse(version)
+    details = get_package_details(name=name, host=host, repository=repository)
+    versions = sorted(set([v[2] for v in details]))
+
+    return len(versions) - list(versions).index(version) - 1
+
+
 def get_version_release_dates(
     name, version, version_lt, host=NEXUS_URL, repository=NEXUS_REPOSITORY
 ):

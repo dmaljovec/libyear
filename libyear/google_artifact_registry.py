@@ -51,6 +51,22 @@ def get_artifact_registry_timestamp(
     return response.update_time
 
 
+def get_no_of_releases(
+    name,
+    version,
+    project=GOOGLE_PROJECT,
+    location=GOOGLE_LOCATION,
+    repository=GOOGLE_REPOSITORY,
+):
+    version = parse(version)
+    details = get_package_details(
+        name=name, project=project, location=location, repository=repository
+    )
+    versions = sorted(set([v[1] for v in details]))
+
+    return len(versions) - list(versions).index(version) - 1
+
+
 def get_version_release_dates(
     name,
     version,
